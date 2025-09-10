@@ -226,8 +226,7 @@ jobs:
         run: |
           echo "Creating GitHub issues from generated tasks..."
           
-          # Authenticate with GitHub CLI
-          echo "$GITHUB_TOKEN" | gh auth login --with-token
+          # GitHub CLI automatically uses GITHUB_TOKEN in GitHub Actions
           
           # Parse tasks and create issues
           awk '
