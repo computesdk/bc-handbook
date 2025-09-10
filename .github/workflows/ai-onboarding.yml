@@ -157,54 +157,40 @@ jobs:
           ADDITIONAL_REQS="${{ steps.employee.outputs.additional_reqs }}"
           
           # Create the Claude prompt file
-          cat > claude_prompt.txt << 'EOF'
-You are an expert onboarding specialist for 37signals. Based on the employee handbook content provided, generate 8-12 specific, actionable onboarding tasks for this new employee.
+          echo "You are an expert onboarding specialist for 37signals. Based on the employee handbook content provided, generate 8-12 specific, actionable onboarding tasks for this new employee." > claude_prompt.txt
+          echo "" >> claude_prompt.txt
+          echo "EMPLOYEE DETAILS:" >> claude_prompt.txt
+          echo "- Name: $NAME" >> claude_prompt.txt
+          echo "- Role: $ROLE" >> claude_prompt.txt
+          echo "- Start Date: $START_DATE" >> claude_prompt.txt
+          echo "- Experience Level: $EXPERIENCE" >> claude_prompt.txt
+          echo "- Team: $TEAM" >> claude_prompt.txt
+          echo "- Location: $LOCATION" >> claude_prompt.txt
+          echo "- Special Focus: $SPECIAL_FOCUS" >> claude_prompt.txt
+          echo "- Additional Requirements: $ADDITIONAL_REQS" >> claude_prompt.txt
+          echo "" >> claude_prompt.txt
+          cat handbook_context.txt >> claude_prompt.txt
+          echo "" >> claude_prompt.txt
+          echo "TASK GENERATION REQUIREMENTS:" >> claude_prompt.txt
+          echo "1. Reference Actual Policies: Each task must reference specific handbook sections" >> claude_prompt.txt
+          echo "2. Role-Specific Tasks: Create different tasks based on the employee role" >> claude_prompt.txt
+          echo "3. Experience-Appropriate: Adjust complexity based on experience level" >> claude_prompt.txt
+          echo "4. Location-Aware: Include location-specific tasks for US vs international" >> claude_prompt.txt
+          echo "5. Timeline-Based: Structure tasks across Week 1, Month 1, Month 3" >> claude_prompt.txt
+          echo "6. 37signals Culture: Include company-specific elements like 6-week cycles" >> claude_prompt.txt
+          echo "" >> claude_prompt.txt
+          echo "FORMAT EACH TASK AS:" >> claude_prompt.txt
+          echo "TASK_START" >> claude_prompt.txt
+          echo "TITLE: [Emoji] [Specific Action Title]" >> claude_prompt.txt
+          echo "DESCRIPTION: [Detailed description with handbook references and clear success criteria]" >> claude_prompt.txt
+          echo "ASSIGNEE: [Who should be assigned - employee name, manager, ops team, etc.]" >> claude_prompt.txt
+          echo "LABELS: [Comma-separated labels like onboarding, week-1, benefits, technical]" >> claude_prompt.txt
+          echo "DUE_DATE: [Relative date like Day 1, Week 1, Month 1]" >> claude_prompt.txt
+          echo "PRIORITY: [high/medium/low]" >> claude_prompt.txt
+          echo "TASK_END" >> claude_prompt.txt
+          echo "" >> claude_prompt.txt
+          echo "Generate tasks that transform handbook policies into actionable onboarding steps." >> claude_prompt.txt
 
-EMPLOYEE DETAILS:
-- Name: NAME_PLACEHOLDER
-- Role: ROLE_PLACEHOLDER  
-- Start Date: START_DATE_PLACEHOLDER
-- Experience Level: EXPERIENCE_PLACEHOLDER
-- Team: TEAM_PLACEHOLDER
-- Location: LOCATION_PLACEHOLDER
-- Special Focus: SPECIAL_FOCUS_PLACEHOLDER
-- Additional Requirements: ADDITIONAL_REQS_PLACEHOLDER
-
-HANDBOOK_CONTENT_PLACEHOLDER
-
-TASK GENERATION REQUIREMENTS:
-
-1. Reference Actual Policies: Each task must reference specific handbook sections
-2. Role-Specific Tasks: Create different tasks based on the employee role
-3. Experience-Appropriate: Adjust complexity based on experience level
-4. Location-Aware: Include location-specific tasks for US vs international
-5. Timeline-Based: Structure tasks across Week 1, Month 1, Month 3
-6. 37signals Culture: Include company-specific elements like 6-week cycles
-
-FORMAT EACH TASK AS:
-TASK_START
-TITLE: [Emoji] [Specific Action Title]
-DESCRIPTION: [Detailed description with handbook references and clear success criteria]
-ASSIGNEE: [Who should be assigned - employee name, manager, ops team, etc.]
-LABELS: [Comma-separated labels like "onboarding", "week-1", "benefits", "technical"]
-DUE_DATE: [Relative date like "Day 1", "Week 1", "Month 1"]  
-PRIORITY: [high/medium/low]
-TASK_END
-
-Generate tasks that transform handbook policies into actionable onboarding steps.
-EOF
-
-          # Replace placeholders in the prompt
-          sed -i "s/NAME_PLACEHOLDER/$NAME/g" claude_prompt.txt
-          sed -i "s/ROLE_PLACEHOLDER/$ROLE/g" claude_prompt.txt
-          sed -i "s/START_DATE_PLACEHOLDER/$START_DATE/g" claude_prompt.txt
-          sed -i "s/EXPERIENCE_PLACEHOLDER/$EXPERIENCE/g" claude_prompt.txt
-          sed -i "s/TEAM_PLACEHOLDER/$TEAM/g" claude_prompt.txt
-          sed -i "s/LOCATION_PLACEHOLDER/$LOCATION/g" claude_prompt.txt
-          sed -i "s/SPECIAL_FOCUS_PLACEHOLDER/$SPECIAL_FOCUS/g" claude_prompt.txt
-          sed -i "s/ADDITIONAL_REQS_PLACEHOLDER/$ADDITIONAL_REQS/g" claude_prompt.txt
-          sed -i "/HANDBOOK_CONTENT_PLACEHOLDER/r handbook_context.txt" claude_prompt.txt
-          sed -i "/HANDBOOK_CONTENT_PLACEHOLDER/d" claude_prompt.txt
           
           # Call Claude API
           CLAUDE_RESPONSE=$(curl -s -X POST "https://api.anthropic.com/v1/messages" \
