@@ -156,13 +156,13 @@ jobs:
           SPECIAL_FOCUS="${{ steps.employee.outputs.special_focus }}"
           ADDITIONAL_REQS="${{ steps.employee.outputs.additional_reqs }}"
           
-          # Create the Claude prompt
-          cat > claude_prompt.txt << 'PROMPT_EOF'
+          # Create the Claude prompt file
+          cat > claude_prompt.txt << 'EOF'
 You are an expert onboarding specialist for 37signals. Based on the employee handbook content provided, generate 8-12 specific, actionable onboarding tasks for this new employee.
 
 EMPLOYEE DETAILS:
 - Name: NAME_PLACEHOLDER
-- Role: ROLE_PLACEHOLDER
+- Role: ROLE_PLACEHOLDER  
 - Start Date: START_DATE_PLACEHOLDER
 - Experience Level: EXPERIENCE_PLACEHOLDER
 - Team: TEAM_PLACEHOLDER
@@ -174,47 +174,25 @@ HANDBOOK_CONTENT_PLACEHOLDER
 
 TASK GENERATION REQUIREMENTS:
 
-1. **Reference Actual Policies**: Each task must reference specific handbook sections (e.g., "per getting-started.md", "as outlined in benefits-and-perks.md")
-
-2. **Role-Specific Tasks**: Create different tasks based on the employee's role:
-   - Programmers: Focus on technical onboarding, on-call preparation, code review processes
-   - Designers: Focus on design processes, collaboration with product teams
-   - Operations: Focus on system administration, security protocols
-   - Support: Focus on customer interaction, EOS preparation
-
-3. **Experience-Appropriate**: Adjust complexity based on experience level:
-   - Junior: More guidance and mentorship tasks
-   - Senior/Lead: More strategic and leadership preparation tasks
-
-4. **Location-Aware**: Include location-specific tasks:
-   - US employees: Benefits enrollment, 401k setup
-   - International: Reimbursement setup, tax considerations
-
-5. **Timeline-Based**: Structure tasks across:
-   - Week 1: Essential setup and introductions
-   - Month 1: Core integration and learning
-   - Month 3: Full productivity and contribution
-
-6. **37signals Culture**: Include company-specific elements:
-   - 6-week cycles and cooldown periods
-   - Async communication practices
-   - Remote work culture
-   - Company meetups and rituals
+1. Reference Actual Policies: Each task must reference specific handbook sections
+2. Role-Specific Tasks: Create different tasks based on the employee role
+3. Experience-Appropriate: Adjust complexity based on experience level
+4. Location-Aware: Include location-specific tasks for US vs international
+5. Timeline-Based: Structure tasks across Week 1, Month 1, Month 3
+6. 37signals Culture: Include company-specific elements like 6-week cycles
 
 FORMAT EACH TASK AS:
-```
 TASK_START
 TITLE: [Emoji] [Specific Action Title]
 DESCRIPTION: [Detailed description with handbook references and clear success criteria]
 ASSIGNEE: [Who should be assigned - employee name, manager, ops team, etc.]
 LABELS: [Comma-separated labels like "onboarding", "week-1", "benefits", "technical"]
-DUE_DATE: [Relative date like "Day 1", "Week 1", "Month 1"]
+DUE_DATE: [Relative date like "Day 1", "Week 1", "Month 1"]  
 PRIORITY: [high/medium/low]
 TASK_END
-```
 
-Generate tasks that transform handbook policies into actionable onboarding steps. Be specific about which handbook sections to reference and include clear success criteria for each task.
-PROMPT_EOF
+Generate tasks that transform handbook policies into actionable onboarding steps.
+EOF
 
           # Replace placeholders in the prompt
           sed -i "s/NAME_PLACEHOLDER/$NAME/g" claude_prompt.txt
