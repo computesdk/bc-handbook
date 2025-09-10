@@ -1,0 +1,107 @@
+name: 🤖 AI-Powered Employee Onboarding
+description: Generate intelligent onboarding tasks based on handbook analysis
+title: "🚀 Onboard: [NAME] - [ROLE] - [START_DATE]"
+labels: ["onboarding", "ai-generated"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This will use AI to analyze our employee handbook and generate personalized onboarding tasks based on actual company policies and role requirements.
+        
+  - type: input
+    id: name
+    attributes:
+      label: Employee Name
+      placeholder: "Alice Johnson"
+    validations:
+      required: true
+      
+  - type: dropdown
+    id: role
+    attributes:
+      label: Primary Role
+      options: 
+        - "Junior Programmer (L1)"
+        - "Programmer (L2)"
+        - "Senior Programmer (L3)"
+        - "Lead Programmer (L4)"
+        - "Principal Programmer (L5)"
+        - "Junior Designer"
+        - "Designer"
+        - "Senior Designer"
+        - "Lead Designer"
+        - "Principal Designer"
+        - "Operations Engineer"
+        - "Senior Operations Engineer"
+        - "Lead Operations Engineer"
+        - "QA Engineer"
+        - "Senior QA Engineer"
+        - "Support Engineer"
+        - "Senior Support Engineer"
+        - "Product Manager"
+        - "Senior Product Manager"
+        - "Marketing Specialist"
+        - "Senior Marketing Specialist"
+        - "People Operations"
+        - "Finance & Accounting"
+    validations:
+      required: true
+      
+  - type: input
+    id: start_date
+    attributes:
+      label: Start Date
+      placeholder: "2025-01-15"
+    validations:
+      required: true
+      
+  - type: dropdown
+    id: experience_level
+    attributes:
+      label: Experience Level
+      options: ["Junior", "Mid-level", "Senior", "Lead", "Principal"]
+    validations:
+      required: true
+      
+  - type: input
+    id: team
+    attributes:
+      label: Team/Department
+      placeholder: "Web Team, Mobile Team, SIP Team, Design, Operations, etc."
+      
+  - type: dropdown
+    id: location
+    attributes:
+      label: Location Type
+      options: ["US Employee", "International Employee"]
+    validations:
+      required: true
+      
+  - type: textarea
+    id: special_focus
+    attributes:
+      label: Special Focus Areas (Optional)
+      placeholder: "Any specific areas to emphasize? (e.g., on-call preparation, specific systems, accessibility, etc.)"
+      
+  - type: checkboxes
+    id: additional_requirements
+    attributes:
+      label: Additional Requirements
+      options:
+        - label: "Will need on-call rotation training"
+        - label: "Requires admin/elevated privileges"
+        - label: "Will be attending next company meetup"
+        - label: "Has previous remote work experience"
+        - label: "New to 37signals products/philosophy"
+        
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        
+        **What happens next:**
+        1. This issue will trigger an automated workflow
+        2. AI will analyze our employee handbook content
+        3. Personalized onboarding tasks will be generated as individual GitHub issues
+        4. Tasks will be assigned to the new employee and relevant team members
+        5. Progress can be tracked through the generated issues

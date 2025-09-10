@@ -1,0 +1,382 @@
+name: 🤖 AI-Powered Employee Onboarding
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  generate-onboarding-tasks:
+    if: contains(github.event.issue.labels.*.name, 'onboarding')
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        
+      - name: Install GitHub CLI
+        run: |
+          type -p curl >/dev/null || (sudo apt update && sudo apt install curl -y)
+          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+          sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+          sudo apt update
+          sudo apt install gh -y
+          
+      - name: Collect Handbook Context
+        id: context
+        run: |
+          echo "Collecting handbook content for AI analysis..."
+          
+          # Create context file with all handbook content
+          {
+            echo "=== 37SIGNALS EMPLOYEE HANDBOOK CONTEXT ==="
+            echo ""
+            
+            # Add all markdown files with clear section headers
+            for file in *.md; do
+              if [ -f "$file" ]; then
+                echo "--- HANDBOOK SECTION: $file ---"
+                cat "$file"
+                echo ""
+                echo ""
+              fi
+            done
+            
+            echo "=== END HANDBOOK CONTENT ==="
+          } > handbook_context.txt
+          
+          # Verify context was created
+          echo "Context file size: $(wc -c < handbook_context.txt) bytes"
+          echo "Context file lines: $(wc -l < handbook_context.txt) lines"
+          
+          # Set output for next step
+          echo "context-file=handbook_context.txt" >> $GITHUB_OUTPUT
+
+      - name: Parse Employee Information
+        id: employee
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          echo "Parsing employee information from issue..."
+          
+          # Parse employee details from the issue body
+          # The issue template creates structured data we can extract
+          
+          # Extract name (look for "Employee Name" field)
+          NAME=$(echo "$ISSUE_BODY" | grep -A1 "### Employee Name" | tail -1 | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
+          if [ -z "$NAME" ]; then
+            NAME="New Employee"
+          fi
+          
+          # Extract role
+          ROLE=$(echo "$ISSUE_BODY" | grep -A1 "### Primary Role" | tail -1 | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
+          if [ -z "$ROLE" ]; then
+            ROLE="Team Member"
+          fi
+          
+          # Extract start date
+          START_DATE=$(echo "$ISSUE_BODY" | grep -A1 "### Start Date" | tail -1 | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
+          if [ -z "$START_DATE" ]; then
+            START_DATE="TBD"
+          fi
+          
+          # Extract experience level
+          EXPERIENCE=$(echo "$ISSUE_BODY" | grep -A1 "### Experience Level" | tail -1 | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
+          if [ -z "$EXPERIENCE" ]; then
+            EXPERIENCE="Mid-level"
+          fi
+          
+          # Extract team
+          TEAM=$(echo "$ISSUE_BODY" | grep -A1 "### Team/Department" | tail -1 | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
+          
+          # Extract location
+          LOCATION=$(echo "$ISSUE_BODY" | grep -A1 "### Location Type" | tail -1 | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
+          
+          # Extract special focus
+          SPECIAL_FOCUS=$(echo "$ISSUE_BODY" | grep -A3 "### Special Focus Areas" | tail -3 | tr '\n' ' ' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
+          
+          # Extract additional requirements (checkboxes)
+          ADDITIONAL_REQS=""
+          if echo "$ISSUE_BODY" | grep -q "\\[x\\].*on-call rotation"; then
+            ADDITIONAL_REQS="$ADDITIONAL_REQS on-call-training"
+          fi
+          if echo "$ISSUE_BODY" | grep -q "\\[x\\].*admin.*privileges"; then
+            ADDITIONAL_REQS="$ADDITIONAL_REQS admin-access"
+          fi
+          if echo "$ISSUE_BODY" | grep -q "\\[x\\].*company meetup"; then
+            ADDITIONAL_REQS="$ADDITIONAL_REQS meetup-prep"
+          fi
+          if echo "$ISSUE_BODY" | grep -q "\\[x\\].*remote work experience"; then
+            ADDITIONAL_REQS="$ADDITIONAL_REQS remote-experienced"
+          fi
+          if echo "$ISSUE_BODY" | grep -q "\\[x\\].*New to 37signals"; then
+            ADDITIONAL_REQS="$ADDITIONAL_REQS new-to-37signals"
+          fi
+          
+          echo "Parsed employee information:"
+          echo "Name: $NAME"
+          echo "Role: $ROLE"
+          echo "Start Date: $START_DATE"
+          echo "Experience: $EXPERIENCE"
+          echo "Team: $TEAM"
+          echo "Location: $LOCATION"
+          echo "Special Focus: $SPECIAL_FOCUS"
+          echo "Additional Requirements: $ADDITIONAL_REQS"
+          
+          # Set outputs for next step
+          echo "name=$NAME" >> $GITHUB_OUTPUT
+          echo "role=$ROLE" >> $GITHUB_OUTPUT
+          echo "start_date=$START_DATE" >> $GITHUB_OUTPUT
+          echo "experience=$EXPERIENCE" >> $GITHUB_OUTPUT
+          echo "team=$TEAM" >> $GITHUB_OUTPUT
+          echo "location=$LOCATION" >> $GITHUB_OUTPUT
+          echo "special_focus=$SPECIAL_FOCUS" >> $GITHUB_OUTPUT
+          echo "additional_reqs=$ADDITIONAL_REQS" >> $GITHUB_OUTPUT
+
+      - name: Generate Onboarding Tasks with Claude AI
+        id: claude
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Generating personalized onboarding tasks with Claude AI..."
+          
+          # Read the handbook context
+          HANDBOOK_CONTENT=$(cat handbook_context.txt)
+          
+          # Get employee info from previous step
+          NAME="${{ steps.employee.outputs.name }}"
+          ROLE="${{ steps.employee.outputs.role }}"
+          START_DATE="${{ steps.employee.outputs.start_date }}"
+          EXPERIENCE="${{ steps.employee.outputs.experience }}"
+          TEAM="${{ steps.employee.outputs.team }}"
+          LOCATION="${{ steps.employee.outputs.location }}"
+          SPECIAL_FOCUS="${{ steps.employee.outputs.special_focus }}"
+          ADDITIONAL_REQS="${{ steps.employee.outputs.additional_reqs }}"
+          
+          # Create the Claude prompt
+          cat > claude_prompt.txt << 'PROMPT_EOF'
+You are an expert onboarding specialist for 37signals. Based on the employee handbook content provided, generate 8-12 specific, actionable onboarding tasks for this new employee.
+
+EMPLOYEE DETAILS:
+- Name: NAME_PLACEHOLDER
+- Role: ROLE_PLACEHOLDER
+- Start Date: START_DATE_PLACEHOLDER
+- Experience Level: EXPERIENCE_PLACEHOLDER
+- Team: TEAM_PLACEHOLDER
+- Location: LOCATION_PLACEHOLDER
+- Special Focus: SPECIAL_FOCUS_PLACEHOLDER
+- Additional Requirements: ADDITIONAL_REQS_PLACEHOLDER
+
+HANDBOOK_CONTENT_PLACEHOLDER
+
+TASK GENERATION REQUIREMENTS:
+
+1. **Reference Actual Policies**: Each task must reference specific handbook sections (e.g., "per getting-started.md", "as outlined in benefits-and-perks.md")
+
+2. **Role-Specific Tasks**: Create different tasks based on the employee's role:
+   - Programmers: Focus on technical onboarding, on-call preparation, code review processes
+   - Designers: Focus on design processes, collaboration with product teams
+   - Operations: Focus on system administration, security protocols
+   - Support: Focus on customer interaction, EOS preparation
+
+3. **Experience-Appropriate**: Adjust complexity based on experience level:
+   - Junior: More guidance and mentorship tasks
+   - Senior/Lead: More strategic and leadership preparation tasks
+
+4. **Location-Aware**: Include location-specific tasks:
+   - US employees: Benefits enrollment, 401k setup
+   - International: Reimbursement setup, tax considerations
+
+5. **Timeline-Based**: Structure tasks across:
+   - Week 1: Essential setup and introductions
+   - Month 1: Core integration and learning
+   - Month 3: Full productivity and contribution
+
+6. **37signals Culture**: Include company-specific elements:
+   - 6-week cycles and cooldown periods
+   - Async communication practices
+   - Remote work culture
+   - Company meetups and rituals
+
+FORMAT EACH TASK AS:
+```
+TASK_START
+TITLE: [Emoji] [Specific Action Title]
+DESCRIPTION: [Detailed description with handbook references and clear success criteria]
+ASSIGNEE: [Who should be assigned - employee name, manager, ops team, etc.]
+LABELS: [Comma-separated labels like "onboarding", "week-1", "benefits", "technical"]
+DUE_DATE: [Relative date like "Day 1", "Week 1", "Month 1"]
+PRIORITY: [high/medium/low]
+TASK_END
+```
+
+Generate tasks that transform handbook policies into actionable onboarding steps. Be specific about which handbook sections to reference and include clear success criteria for each task.
+PROMPT_EOF
+
+          # Replace placeholders in the prompt
+          sed -i "s/NAME_PLACEHOLDER/$NAME/g" claude_prompt.txt
+          sed -i "s/ROLE_PLACEHOLDER/$ROLE/g" claude_prompt.txt
+          sed -i "s/START_DATE_PLACEHOLDER/$START_DATE/g" claude_prompt.txt
+          sed -i "s/EXPERIENCE_PLACEHOLDER/$EXPERIENCE/g" claude_prompt.txt
+          sed -i "s/TEAM_PLACEHOLDER/$TEAM/g" claude_prompt.txt
+          sed -i "s/LOCATION_PLACEHOLDER/$LOCATION/g" claude_prompt.txt
+          sed -i "s/SPECIAL_FOCUS_PLACEHOLDER/$SPECIAL_FOCUS/g" claude_prompt.txt
+          sed -i "s/ADDITIONAL_REQS_PLACEHOLDER/$ADDITIONAL_REQS/g" claude_prompt.txt
+          sed -i "/HANDBOOK_CONTENT_PLACEHOLDER/r handbook_context.txt" claude_prompt.txt
+          sed -i "/HANDBOOK_CONTENT_PLACEHOLDER/d" claude_prompt.txt
+          
+          # Call Claude API
+          CLAUDE_RESPONSE=$(curl -s -X POST "https://api.anthropic.com/v1/messages" \
+            -H "x-api-key: $ANTHROPIC_API_KEY" \
+            -H "content-type: application/json" \
+            -H "anthropic-version: 2023-06-01" \
+            -d "{
+              \"model\": \"claude-3-5-sonnet-20241022\",
+              \"max_tokens\": 4000,
+              \"messages\": [{
+                \"role\": \"user\",
+                \"content\": $(cat claude_prompt.txt | jq -Rs .)
+              }]
+            }")
+          
+          # Check for API errors
+          if echo "$CLAUDE_RESPONSE" | jq -e '.error' > /dev/null; then
+            echo "Error calling Claude API:"
+            echo "$CLAUDE_RESPONSE" | jq '.error'
+            exit 1
+          fi
+          
+          # Extract the response text
+          echo "$CLAUDE_RESPONSE" | jq -r '.content[0].text' > claude_response.txt
+          
+          echo "Claude AI response received. Processing tasks..."
+          echo "Response length: $(wc -c < claude_response.txt) characters"
+
+      - name: Create GitHub Issues from Generated Tasks
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EMPLOYEE_NAME: ${{ steps.employee.outputs.name }}
+        run: |
+          echo "Creating GitHub issues from generated tasks..."
+          
+          # Authenticate with GitHub CLI
+          echo "$GITHUB_TOKEN" | gh auth login --with-token
+          
+          # Parse tasks and create issues
+          awk '
+          BEGIN { 
+            RS="TASK_START"; 
+            FS="\n";
+            employee_name = ENVIRON["EMPLOYEE_NAME"];
+          }
+          /TITLE:/ {
+            title=""; description=""; assignee=""; labels=""; due_date=""; priority="";
+            
+            for(i=1; i<=NF; i++) {
+              if($i ~ /^TITLE:/) { 
+                title = substr($i, 8);
+                gsub(/^[ \t]+|[ \t]+$/, "", title);
+              }
+              else if($i ~ /^DESCRIPTION:/) { 
+                description = substr($i, 13);
+                gsub(/^[ \t]+|[ \t]+$/, "", description);
+                # Collect multi-line descriptions
+                for(j=i+1; j<=NF && $j !~ /^(ASSIGNEE|LABELS|DUE_DATE|PRIORITY|TASK_END):/ && $j != ""; j++) {
+                  if($j !~ /^[ \t]*$/) {
+                    description = description "\n" $j;
+                  }
+                }
+              }
+              else if($i ~ /^ASSIGNEE:/) { 
+                assignee = substr($i, 10);
+                gsub(/^[ \t]+|[ \t]+$/, "", assignee);
+              }
+              else if($i ~ /^LABELS:/) { 
+                labels = substr($i, 8);
+                gsub(/^[ \t]+|[ \t]+$/, "", labels);
+              }
+              else if($i ~ /^DUE_DATE:/) { 
+                due_date = substr($i, 10);
+                gsub(/^[ \t]+|[ \t]+$/, "", due_date);
+              }
+              else if($i ~ /^PRIORITY:/) { 
+                priority = substr($i, 10);
+                gsub(/^[ \t]+|[ \t]+$/, "", priority);
+              }
+            }
+            
+            if(title != "" && description != "") {
+              # Clean up description
+              gsub(/\\n/, "\n", description);
+              
+              # Add metadata to description
+              full_description = description "\n\n---\n**Onboarding Details:**\n";
+              full_description = full_description "- **Employee:** " employee_name "\n";
+              full_description = full_description "- **Due:** " due_date "\n";
+              full_description = full_description "- **Priority:** " priority "\n";
+              
+              # Prepare labels
+              final_labels = "onboarding-task";
+              if(labels != "") {
+                final_labels = final_labels "," labels;
+              }
+              if(priority != "") {
+                final_labels = final_labels "," priority "-priority";
+              }
+              
+              # Create the GitHub issue
+              cmd = "gh issue create --title \"" title "\" --body \"" full_description "\" --label \"" final_labels "\"";
+              
+              # Add assignee if specified and it'\''s the employee
+              if(assignee != "" && (assignee == employee_name || assignee ~ /employee/)) {
+                # Note: We can'\''t auto-assign to arbitrary users, so we'\''ll mention them in the description instead
+                full_description = full_description "\n**Assign to:** " assignee;
+                cmd = "gh issue create --title \"" title "\" --body \"" full_description "\" --label \"" final_labels "\"";
+              }
+              
+              print "Creating issue: " title;
+              system(cmd);
+            }
+          }' claude_response.txt
+
+      - name: Update Main Onboarding Issue
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          EMPLOYEE_NAME: ${{ steps.employee.outputs.name }}
+        run: |
+          echo "Updating main onboarding issue with generated task summary..."
+          
+          # Count created tasks
+          TASK_COUNT=$(grep -c "TASK_START" claude_response.txt || echo "0")
+          
+          # Create summary comment
+          COMMENT="🎉 **Onboarding tasks generated successfully!**
+          
+          I've analyzed the 37signals employee handbook and created **$TASK_COUNT personalized onboarding tasks** for $EMPLOYEE_NAME.
+          
+          ## 📋 What was generated:
+          - Role-specific tasks based on the employee's position
+          - Policy-aware tasks referencing actual handbook sections  
+          - Timeline-based tasks spanning Week 1 → Month 1 → Month 3
+          - 37signals culture integration tasks
+          
+          ## 🔍 Next steps:
+          1. Review the generated tasks in the [Issues tab](../../issues?q=is%3Aissue+label%3Aonboarding-task+is%3Aopen)
+          2. Assign appropriate team members to tasks
+          3. Adjust timelines as needed
+          4. Begin working through the onboarding checklist
+          
+          ## 🏷️ Finding the tasks:
+          All generated tasks are labeled with \`onboarding-task\` and can be found by filtering issues.
+          
+          Happy onboarding! 🚀"
+          
+          # Add comment to the original issue
+          gh issue comment $ISSUE_NUMBER --body "$COMMENT"
+          
+          # Close the main onboarding issue since tasks are now created
+          gh issue close $ISSUE_NUMBER --comment "Onboarding tasks have been generated. Tracking will continue through individual task issues."
